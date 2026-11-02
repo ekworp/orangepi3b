@@ -1,0 +1,15 @@
+# 日志与临时文件
+*.log
+*.tmp
+*.swp
+*~
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 本地构建产物（如需在本目录编译时）
+/build/
+/dist/
