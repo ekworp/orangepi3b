@@ -3,7 +3,7 @@
 本仓库记录在 **Armbian / 主line内核** 上为 Orange Pi 3B（RK3566）启用硬件视频解码的完整过程、验证数据和自检脚本。
 
 > 这是一份配置记录，不是一键安装器。换系统/换内核后请先看
-> [升级与重配](VPU硬解配置记录.md#11-升级--重装新系统后能否照本文重配)。
+> [升级与重配](VPU硬解配置记录.md#11-升级--重装新系统后能否照本文重配)：前置检查、需要按新系统调整的项，以及重装顺序。
 
 ## 环境
 
@@ -48,7 +48,7 @@ Armbian 主line内核没有这个设备/驱动，所以装上也硬解不了。�
 | `/dev/video2` | hantro | VP8、MPEG-2 |
 | `/dev/video3` | hantro | H.264/H.265 编码 |
 
-详细证据见 [配置记录第 2 节](VPU硬解配置记录.md#2-核查-ppa重点)。
+详细证据见 [配置记录第 2 节](VPU硬解配置记录.md#2-核查-ppa重点)：PPA 的 noble 包内容、没有内核包、依赖 `/dev/mpp_service` 的实际验证过程。
 
 ## 快速使用
 
@@ -86,9 +86,9 @@ Chromium 打开 `chrome://gpu`，Video Decode 应显示 `Hardware accelerated`�
 
 ## 参考
 
-- [Kwiboo FFmpeg（v4l2-request）](https://github.com/Kwiboo/FFmpeg)
-- [mpv](https://github.com/mpv-player/mpv)
-- [Linux V4L2 stateless codec API](https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/dev-stateless-decoder.html)
+- [Kwiboo FFmpeg（v4l2-request）](https://github.com/Kwiboo/FFmpeg)：带 `v4l2request` hwaccel 的 FFmpeg 分支，本仓库用它提供 FFmpeg/mpv 的硬解能力。
+- [mpv](https://github.com/mpv-player/mpv)：轻量播放器，本仓库使用 0.41.0，通过 `--hwdec=v4l2request-copy` 调用 V4L2 stateless 解码器。
+- [Linux V4L2 stateless codec API](https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/dev-stateless-decoder.html)：内核对无状态解码器的接口说明，对应 `/dev/video1` 的 `S264/S265` 输出。
 
 ## License
 
