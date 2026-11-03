@@ -74,6 +74,7 @@ Chromium 打开 `chrome://gpu`，Video Decode 应显示 `Hardware accelerated`�
 | `VPU硬解配置记录.md` | 完整配置过程：环境确认、PPA 核查、GStreamer 实测、FFmpeg/mpv 编译、Chromium flags、升级指引 |
 | `VPU-硬解配置说明.md` | 简明使用与回滚说明 |
 | `vpu-check.sh` | 一键自检脚本 |
+| `系统变更记录-2026-11-03.md` | 2026-11-03 的远程控制、720p、GPU/鼠标性能与输入法调整总结 |
 | `OrangePi_3B_RK3566_用户手册_v1.9.pdf` | 官方用户手册（版权归深圳市迅龙软件有限公司，仅作资料存档） |
 
 ## 已知限制
