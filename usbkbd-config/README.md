@@ -127,10 +127,124 @@ vkbd key esc
 vkbd up
 ```
 
-可用环境变量：
+## SSH 键盘转发模式
 
-- `VKBD_DEV`：默认 `/dev/hidg0`
-- `VKBD_DELAY`：按键间隔，默认 `0.02` 秒
+在 SSH 窗口执行：
+
+```bash
+# 已执行过 install.sh：
+vkbd-forward
+
+# 或者直接从仓库运行：
+./usbkbd-config/vkbd-forward.sh
+```
+
+普通字符、回车、Tab、退格、方向键、Home/End、PageUp/PageDown、
+Insert/Delete、F1-F12、Shift+Tab、带修饰键的方向键/Home/End/Delete
+以及 Alt+字母会直接转发。按 `Ctrl-J` 退出，程序会自动恢复 SSH 终端设置。
+
+### 被本地终端/系统拦截的键
+
+有些键在到达 SSH 之前就被本地 Windows 终端或系统吃掉了，例如：
+
+- Windows Terminal 默认把 `Ctrl+V` 当粘贴、`Ctrl+C` 当复制；
+- `Alt+Tab`、`Win`、`Ctrl+Alt+Del` 由 Windows 系统处理；
+- `Ctrl+Shift+C/V`、`Ctrl+Tab` 等终端快捷键。
+
+这些键**无法通过直接转发拿到**。用 `Ctrl-]` 命令前缀发送：
+
+| 按键 | 发送到目标 Windows |
+| --- | --- |
+| `Ctrl-] v` | `Ctrl+V`（粘贴） |
+| `Ctrl-] c` | `Ctrl+C`（复制） |
+| `Ctrl-] x` | `Ctrl+X`（剪切） |
+| `Ctrl-] z` | `Ctrl+Z`（撤销） |
+| `Ctrl-] a` | `Ctrl+A`（全选） |
+| `Ctrl-] t` | `Alt+Tab` |
+| `Ctrl-] w` | `Win` |
+| `Ctrl-] s` | `Shift+Insert`（多数 Windows 程序可粘贴） |
+| `Ctrl-] d` | `Ctrl+Alt+Delete` |
+| `Ctrl-] :` | 进入命令行 |
+| `Ctrl-] ?` | 帮助 |
+| `Ctrl-] q` | 退出 |
+
+命令行示例：
+
+```text
+paste
+copy
+alt-tab
+win
+ctrl-shift-v
+shift-insert
+key enter
+key up
+key f5
+combo ctrl alt t
+type hello world
+down ctrl
+up
+```
+
+### 本地终端建议
+
+- **PuTTY / mintty / Alacritty**：`Ctrl+V`、`Ctrl+C` 通常可以直接发到远端，
+  比 Windows Terminal 更适合这种转发。
+- **Windows Terminal**：可以在 `settings.json` 里取消绑定本地快捷键，
+  让按键透传给终端：
+  ```json
+  "keybindings": [
+    { "keys": "ctrl+v", "action": "unbound" },
+    { "keys": "ctrl+c", "action": "unbound" },
+    { "keys": "ctrl+shift+v", "action": "unbound" },
+    { "keys": "ctrl+shift+c", "action": "unbound" }
+  ]
+  ```
+  `Alt+Tab`、`Win`、`Ctrl+Alt+Del` 仍然由系统处理，只能用 `Ctrl-]` 前缀。
+
+### 实现说明
+
+旧版脚本直接用 bash 的 `read` 从 tty 读字节。bash 的 `read` 在等待输入时
+会按 shell 启动时的终端设置重设 termios，把 `stty` 设置的 raw 模式覆盖掉，
+导致 `Ctrl+C`、`Ctrl+V`、`Ctrl+\` 等被 pty 自己吞掉。
+
+现在改为：
+
+```text
+tty (fd 3) -> dd bs=1 -> pipe -> read
+```
+
+所有 `read` 都从管道读取，不再修改 tty；`stty` 只通过 fd 3 操作真实终端。
+另外修复了：
+
+- `trap restore EXIT` 被子 shell 继承，导致运行中恢复 cooked 模式；
+- Shift+Tab、带修饰键的方向键/Home/End/Delete、F1-F4 的 SS3 序列；
+- Alt+字母会误吞后续按键；
+- `vkbd key win` 把修饰键放进 keycode 数组的问题。
+
+### 环境变量
+
+- `VKBD_CMD`：`vkbd` 路径
+- `VKBD_PREFIX`：命令前缀，默认 `Ctrl-]`（0x1d）
+- `VKBD_EXIT`：退出键，默认 `Ctrl-J`（0x0a）
+- `VKBD_DEBUG=1`：显示 `vkbd` 错误
+
+### 更高保真的方案
+
+如果不想用前缀，想要接近物理键盘的体验，需要绕过本地终端：
+
+1. **本地低层键盘钩子 + 网络到板子**（保真度最高）
+   - Windows 端用 `WH_KEYBOARD_LL` 捕获并屏蔽按键，通过 TCP/WebSocket
+     发给板子；
+   - 可以捕获 `Alt+Tab`、`Win`、`Ctrl+V` 等；`Ctrl+Alt+Del` 是 SAS，
+     用户态钩子通常拿不到，仍可用命令前缀发送。
+2. **浏览器 Keyboard Lock + WebSocket**（无需安装软件）
+   - 板子跑一个 WebSocket 服务，浏览器全屏后调用
+     `navigator.keyboard.lock()` 捕获按键；
+   - 可捕获大部分终端会拦截的键，但 `Alt+Tab`、`Win` 等系统键
+     是否可捕获取决于浏览器/Windows 版本。
+
+需要的话可以在当前 `vkbd-forward.sh` 基础上继续做这两种方案。
 
 ## 故障排查
 

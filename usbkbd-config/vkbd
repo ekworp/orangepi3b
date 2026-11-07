@@ -153,7 +153,12 @@ def main():
             if n in KEYS:
                 tap(fd, 0, KEYS[n])
             elif n in MODS:
-                tap(fd, 0, MODS[n])
+                # A modifier alone lives in the modifier byte, not in the
+                # keycode array.
+                send(fd, MODS[n], [])
+                time.sleep(DELAY)
+                send(fd, 0, [])
+                time.sleep(DELAY)
             elif len(n) == 1 and n in CHARS:
                 m, k = CHARS[n]
                 tap(fd, m, k)

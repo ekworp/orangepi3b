@@ -65,6 +65,7 @@ fi
 echo "==> installing gadget scripts"
 install -m 0755 "$HERE/usb-gadget-kbd.sh" /usr/local/sbin/usb-gadget-kbd.sh
 install -m 0755 "$HERE/vkbd" /usr/local/bin/vkbd
+install -m 0755 "$HERE/vkbd-forward.sh" /usr/local/bin/vkbd-forward
 install -d -m 0755 /usr/local/lib/vkbd
 install -m 0644 "$HERE/keyboard.bin" /usr/local/lib/vkbd/keyboard.bin
 install -m 0644 "$HERE/usb-gadget-kbd.service" \
