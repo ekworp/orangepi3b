@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""Send keystrokes through a USB HID gadget (/dev/hidg0).
+
+Examples:
+    vkbd type "hello world"
+    vkbd key enter
+    vkbd combo ctrl alt t
+    vkbd down ctrl ; vkbd key esc ; vkbd up
+"""
+import os
+import sys
+import time
+
+DEV = os.environ.get("VKBD_DEV", "/dev/hidg0")
+DELAY = float(os.environ.get("VKBD_DELAY", "0.02"))
+
+MODS = {
+    "ctrl": 0x01, "lctrl": 0x01, "rctrl": 0x10,
+    "shift": 0x02, "lshift": 0x02, "rshift": 0x20,
+    "alt": 0x04, "lalt": 0x04, "ralt": 0x40,
+    "gui": 0x08, "win": 0x08, "super": 0x08, "meta": 0x08, "lgui": 0x08,
+    "rgui": 0x80,
+}
+
+KEYS = {
+    "enter": 0x28, "return": 0x28, "esc": 0x29, "escape": 0x29,
+    "backspace": 0x2a, "bksp": 0x2a, "tab": 0x2b, "space": 0x2c,
+    "minus": 0x2d, "equal": 0x2e, "leftbracket": 0x2f,
+    "rightbracket": 0x30, "backslash": 0x31, "semicolon": 0x33,
+    "apostrophe": 0x34, "grave": 0x35, "comma": 0x36, "period": 0x37,
+    "slash": 0x38, "capslock": 0x39,
+    "f1": 0x3a, "f2": 0x3b, "f3": 0x3c, "f4": 0x3d, "f5": 0x3e,
+    "f6": 0x3f, "f7": 0x40, "f8": 0x41, "f9": 0x42, "f10": 0x43,
+    "f11": 0x44, "f12": 0x45,
+    "printscreen": 0x46, "scrolllock": 0x47, "pause": 0x48,
+    "insert": 0x49, "home": 0x4a, "pageup": 0x4b, "delete": 0x4c,
+    "del": 0x4c, "end": 0x4d, "pagedown": 0x4e, "right": 0x4f,
+    "left": 0x50, "down": 0x51, "up": 0x52, "numlock": 0x53,
+    "kp_divide": 0x54, "kp_multiply": 0x55, "kp_minus": 0x56,
+    "kp_plus": 0x57, "kp_enter": 0x58, "kp_1": 0x59, "kp_2": 0x5a,
+    "kp_3": 0x5b, "kp_4": 0x5c, "kp_5": 0x5d, "kp_6": 0x5e,
+    "kp_7": 0x5f, "kp_8": 0x60, "kp_9": 0x61, "kp_0": 0x62,
+    "kp_period": 0x63, "application": 0x65, "menu": 0x65,
+    "power": 0x66,
+}
+
+CHARS = {}
+for _i, _ch in enumerate("abcdefghijklmnopqrstuvwxyz"):
+    CHARS[_ch] = (0, 0x04 + _i)
+for _i, _ch in enumerate("1234567890"):
+    CHARS[_ch] = (0, 0x1e + _i)
+CHARS.update({
+    " ": (0, KEYS["space"]),
+    "\n": (0, KEYS["enter"]),
+    "\t": (0, KEYS["tab"]),
+    "-": (0, KEYS["minus"]),
+    "=": (0, KEYS["equal"]),
+    "[": (0, KEYS["leftbracket"]),
+    "]": (0, KEYS["rightbracket"]),
+    "\\": (0, KEYS["backslash"]),
+    ";": (0, KEYS["semicolon"]),
+    "'": (0, KEYS["apostrophe"]),
+    "`": (0, KEYS["grave"]),
+    ",": (0, KEYS["comma"]),
+    ".": (0, KEYS["period"]),
+    "/": (0, KEYS["slash"]),
+})
+_SHIFTED = {
+    "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6",
+    "&": "7", "*": "8", "(": "9", ")": "0", "_": "minus",
+    "+": "equal", "{": "leftbracket", "}": "rightbracket",
+    "|": "backslash", ":": "semicolon", '"': "apostrophe",
+    "~": "grave", "<": "comma", ">": "period", "?": "slash",
+}
+for _ch, _base in _SHIFTED.items():
+    if _base in CHARS:
+        _m, _k = CHARS[_base]
+        CHARS[_ch] = (_m | MODS["shift"], _k)
+    else:
+        CHARS[_ch] = (MODS["shift"], KEYS[_base])
+
+
+def norm(name):
+    return name.strip().lower().replace("_", "").replace("-", "")
+
+
+def send(fd, mod, keys):
+    keys = list(keys)[:6]
+    report = bytes([mod, 0] + keys + [0] * (6 - len(keys)))
+    fd.write(report)
+
+
+def tap(fd, mod, key):
+    send(fd, mod, [key])
+    time.sleep(DELAY)
+    send(fd, 0, [])
+    time.sleep(DELAY)
+
+
+def type_text(fd, text):
+    for ch in text:
+        if ch in CHARS:
+            mod, key = CHARS[ch]
+            tap(fd, mod, key)
+        elif "A" <= ch <= "Z":
+            tap(fd, MODS["shift"], 0x04 + (ord(ch) - ord("A")))
+        else:
+            print(f"vkbd: skipping unsupported character {ch!r}",
+                  file=sys.stderr)
+
+
+def parse_combo(args):
+    mod = 0
+    keys = []
+    for arg in args:
+        n = norm(arg)
+        if n in MODS:
+            mod |= MODS[n]
+        elif n in KEYS:
+            keys.append(KEYS[n])
+        elif len(n) == 1 and n in CHARS:
+            m, k = CHARS[n]
+            mod |= m
+            keys.append(k)
+        else:
+            raise SystemExit(f"vkbd: unknown key {arg!r}")
+    if not keys:
+        raise SystemExit("vkbd: no non-modifier key in combo")
+    return mod, keys
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("usage: vkbd type TEXT | vkbd key NAME | "
+              "vkbd combo MOD... KEY | vkbd down NAME | vkbd up",
+              file=sys.stderr)
+        return 2
+
+    cmd = sys.argv[1]
+    try:
+        fd = open(DEV, "wb", buffering=0)
+    except OSError as e:
+        print(f"vkbd: cannot open {DEV}: {e}", file=sys.stderr)
+        return 1
+
+    with fd:
+        if cmd == "type":
+            type_text(fd, " ".join(sys.argv[2:]))
+        elif cmd == "key":
+            if len(sys.argv) != 3:
+                raise SystemExit("usage: vkbd key NAME")
+            n = norm(sys.argv[2])
+            if n in KEYS:
+                tap(fd, 0, KEYS[n])
+            elif n in MODS:
+                tap(fd, 0, MODS[n])
+            elif len(n) == 1 and n in CHARS:
+                m, k = CHARS[n]
+                tap(fd, m, k)
+            else:
+                raise SystemExit(f"vkbd: unknown key {sys.argv[2]!r}")
+        elif cmd == "combo":
+            mod, keys = parse_combo(sys.argv[2:])
+            send(fd, mod, keys)
+            time.sleep(DELAY)
+            send(fd, 0, [])
+            time.sleep(DELAY)
+        elif cmd == "down":
+            if len(sys.argv) != 3:
+                raise SystemExit("usage: vkbd down NAME")
+            n = norm(sys.argv[2])
+            if n in MODS:
+                send(fd, MODS[n], [])
+            elif n in KEYS:
+                send(fd, 0, [KEYS[n]])
+            else:
+                raise SystemExit(f"vkbd: unknown key {sys.argv[2]!r}")
+        elif cmd == "up":
+            send(fd, 0, [])
+        else:
+            raise SystemExit(f"vkbd: unknown command {cmd!r}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

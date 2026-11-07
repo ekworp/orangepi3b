@@ -1,0 +1,14 @@
+[Unit]
+Description=USB HID virtual keyboard gadget
+After=sys-kernel-config.mount
+Wants=sys-kernel-config.mount
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/usb-gadget-kbd.sh start
+ExecStop=/usr/local/sbin/usb-gadget-kbd.sh stop
+TimeoutStartSec=20
+
+[Install]
+WantedBy=multi-user.target

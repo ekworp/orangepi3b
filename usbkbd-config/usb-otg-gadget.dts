@@ -1,0 +1,29 @@
+/dts-v1/;
+/plugin/;
+
+/*
+ * Orange Pi 3B: switch the USB2.0 OTG port (upper port of the USB1 stack,
+ * the one next to the blue USB3.0 port) from Host to Device mode.
+ *
+ * The OTG port's VBUS is switched by regulator vcc5v0_usb_otg (U6, enabled by
+ * USB_OTG_PWREN_H / GPIO0_A5).  In Device mode the board must NOT source 5V
+ * into the host PC, so point the PHY supply at the always-on system 5V rail
+ * instead.  That leaves vcc5v0_usb_otg with no consumers, so U6 stays off.
+ * The PC's 5V still reaches the port's VBUS detect divider, so the PHY sees
+ * VBUS normally.
+ */
+/ {
+	fragment@0 {
+		target = <&usb_host0_xhci>;
+		__overlay__ {
+			dr_mode = "peripheral";
+		};
+	};
+
+	fragment@1 {
+		target = <&usb2phy0_otg>;
+		__overlay__ {
+			phy-supply = <&vcc5v0_sys>;
+		};
+	};
+};

@@ -1,0 +1,1 @@
+KERNEL=="hidg[0-9]*", SUBSYSTEM=="hidg", GROUP="input", MODE="0660"
